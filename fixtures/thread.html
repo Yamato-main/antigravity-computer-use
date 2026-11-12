@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discussion thread fixture</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font: 1rem/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+    button { font: inherit; }
+    article { border-top: 1px solid #999; padding: 1rem 0; }
+    img { display: block; margin-top: 0.75rem; max-width: 100%; height: auto; }
+    img[hidden] { display: none; }
+    #later-replies { margin-top: 65vh; min-height: 75vh; }
+  </style>
+</head>
+<body>
+  <main>
+    <a href="./catalog.html">Catalog</a>
+    <h1 id="title"></h1>
+    <div id="reading-club" hidden>
+      <a href="#later-replies">Later replies</a>
+      <article id="opening-post">
+        <h2>Opening post</h2>
+        <p>I chose the sea train as my favorite set piece.</p>
+        <button type="button" aria-expanded="false" aria-controls="attachment-a">Expand opening attachment</button>
+        <p role="status">Opening attachment is collapsed.</p>
+        <img id="attachment-a" alt="Expanded opening attachment" hidden>
+      </article>
+      <article id="later-replies">
+        <h2>Later replies</h2>
+        <p>I chose the rooftop scene for its panel composition.</p>
+        <button type="button" aria-expanded="false" aria-controls="attachment-b">Expand later attachment</button>
+        <p role="status">Later attachment is collapsed.</p>
+        <img id="attachment-b" alt="Expanded later attachment" hidden>
+      </article>
+    </div>
+  </main>
+  <script>
+    const titles = new Map([
+      ['weekly', 'Weekly manga roundup'],
+      ['reading-club', 'One Piece Reading Club'],
+      ['animation', 'Animation techniques'],
+    ]);
+    const discussion = new URLSearchParams(location.search).get('discussion');
+    const title = titles.get(discussion) ?? 'Discussion unavailable';
+    document.title = title;
+    document.getElementById('title').textContent = title;
+    document.getElementById('reading-club').hidden = discussion !== 'reading-club';
+
+    function attachmentBlob(color) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 440;
+      canvas.height = 148;
+      const context = canvas.getContext('2d');
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const random = crypto.getRandomValues(new Uint8Array(6));
+      const code = Array.from(random, (byte) => alphabet[byte % alphabet.length]).join('');
+      context.fillStyle = color;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#fff';
+      context.font = 'bold 62px monospace';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(code, canvas.width / 2, canvas.height / 2);
+      return new Promise((resolve) => canvas.toBlob(resolve));
+    }
+
+    function installAttachment(postId, label, color) {
+      const post = document.getElementById(postId);
+      const button = post.querySelector('button');
+      const status = post.querySelector('[role="status"]');
+      const image = post.querySelector('img');
+      button.addEventListener('click', () => {
+        button.disabled = true;
+        status.textContent = `${label} attachment is loading…`;
+        setTimeout(async () => {
+          let objectUrl;
+          try {
+            objectUrl = URL.createObjectURL(await attachmentBlob(color));
+            image.src = objectUrl;
+            await image.decode();
+            image.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            status.textContent = `${label} attachment is expanded.`;
+          } catch {
+            status.textContent = `${label} attachment could not be loaded.`;
+            button.disabled = false;
+          } finally {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+          }
+        }, 750);
+      });
+    }
+
+    if (discussion === 'reading-club') {
+      installAttachment('opening-post', 'Opening', '#1b4080');
+      installAttachment('later-replies', 'Later', '#6c2350');
+    }
+  </script>
+</body>
+</html>

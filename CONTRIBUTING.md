@@ -6,6 +6,8 @@ These expectations apply to human and agent contributors alike.
 
 ## Agree on the work
 
+- Read the [documentation guide](docs/README.md) first. Current live evidence, the source review and the persistent runtime proposal supersede historical optimization assumptions. The proposal defines future direction; its implementation has not started and requires an agreed task.
+
 - Start from a maintainer-assigned task or an agreed issue. The [roadmap](docs/ROADMAP.md) describes priorities. Get agreement on the outcome, scope, and acceptance criteria before starting implementation.
 - Keep changes within that scope. Bring up unrelated bugs, refactors, and new ideas separately. Ask before expanding the task or changing the architecture.
 - Keep Antigravity in charge of the task and build on Cua Driver. Check what the installed tools already provide before adding another layer. Identify the gap that the proposed change will close.
@@ -17,6 +19,8 @@ These expectations apply to human and agent contributors alike.
 - Follow the [validation runbook](docs/VALIDATION.md) for applicable checks. Keep evidence shareable by removing private page content, credentials, and personal screenshots from traces. If a live check is blocked, give the exact blocker and steps to reproduce it, and mark that result as unverified.
 
 In the pull request, link the agreed task, state what changed, and include the commands or steps a reviewer can use to reproduce the result.
+
+Before publishing documentation or traces, replace user-specific filesystem paths and local conversation identifiers with portable commands and synthetic run labels. Use JST (UTC+09:00) for newly recorded timestamps and Git author/committer timezone metadata. Keep private provenance outside published files. Review commit history as well as the current files for identifying details.
 
 ## Live comparison for Codex agents
 

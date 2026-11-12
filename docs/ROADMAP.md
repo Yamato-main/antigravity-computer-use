@@ -1,38 +1,30 @@
-# Roadmap and Phase 1 checkpoint
+# Current roadmap
 
-**Checkpoint — 2026-11-10, plugin v0.1.0.** A live Antigravity run completed a read-only browser task through the plugin, establishing the functional baseline. The plugin targets Antigravity App and CLI through a [shared installation](../README.md). IDE support is deferred.
+Status: direction documented; persistent runtime implementation has not started. Starting that work requires a future agreed task. This roadmap summarizes the [documentation guide](README.md), which identifies the current sources and superseded plans.
 
-## Phase 1 decisions
+## Goal and evidence
 
-| Question | Evidence and decision |
-| --- | --- |
-| Where does the agent loop run? | `idea/` puts reasoning, action selection, and verification in Antigravity chat. Antigravity's native plugin format bundles skills and local MCP servers. Use its existing model and tool host. There is no separate agent, SDK dependency, browser service, or custom UI in this candidate. |
-| What is the thinnest connection? | Cua documents direct Antigravity MCP registration. The installed binary's help and the tagged Rust implementation agree that `mcp` on macOS proxies stdio to `CuaDriver.app`, which owns the OS permissions. Point the plugin at the standard app-bundle executable. This avoids relying on the GUI's shell `PATH`. |
-| What belongs in the skill? | MCP tool metadata exposes individual operations. The Antigravity skill adds task-level targeting, image fallback, browser binding, state verification, session cleanup, and provenance. CLI 1.5.3 autocomplete confirmed the plugin-qualified test entry point `/antigravity-computer-use:computer-use`. |
-| Which tool surface ships? | Use the Driver's window and browser primitives directly. Antigravity's `enabledTools` list exposes discovery, capture, verification, common UI actions, bounded Cua steps, and typed browser actions. It leaves Driver management, scripts, clipboard access, recordings, and history out of the normal tool catalog. The list controls exposure in Antigravity. It is not a Cua permission sandbox, and `run_steps` can execute supported nested actions. |
-| How is browser execution attributed? | `/browser` is Antigravity's own Chrome DevTools subagent. The plugin independently exposes Cua's typed browser tools and native window controls. The two are separate test lanes. Use a Driver-owned `isolated_new` browser for repeatable plugin tests. The candidate provides no existing-profile launch grant, and Antigravity's tool approval cannot confer one. Cua browser calls do not inherit `/browser` site rules. |
-| What would justify an adapter? | A reproducible gap in the native connection or result handling. First test the stock MCP path, then Cua's existing image size and file options when relevant. Keep the minimal package if it passes. Evaluate a compatibility layer only against a failing case that those options cannot solve. |
+Bring plugin-driven Computer Use closer to the efficient interaction pattern observed in Codex: retain useful state, execute routine action/observation groups together, and return the information needed for the next decision. Antigravity remains the agent and Cua Driver remains the authority for UI access.
 
-[Antigravity plugins](https://antigravity.google/docs/build-plugins/) · [Antigravity MCP and tool exposure](https://antigravity.google/docs/mcp/) · [Native `/browser`](https://antigravity.google/docs/commands/browser/) · [Cua with Antigravity](https://cua.ai/docs/cua-driver/guides/gemini) · [Cua Driver 0.43.2 stdio proxy](https://github.com/trycua/cua/blob/cua-driver-rs-v0.43.2/libs/cua-driver/rust/crates/cua-driver/src/proxy.rs) · [Cua browser binding and authorization](https://cua.ai/docs/cua-driver/guides/browsers)
+The [0.4.1 validation record](VALIDATION_0_4_1.md) establishes real protocol/startup repairs and successful functional checks, with candidate-specific limitations. It also records a final public browsing diagnostic of 355 seconds and 25 MCP calls without inspecting a requested image. This is evidence of an unresolved gap, not a speedup result.
 
-## Verification at handoff
+The [source review](CUA_SOURCE_REVIEW.md) corroborates persistent execution, observation revisions and text/image output mechanisms in the installed reference runtime. It identifies existing Driver capabilities and open host questions. These findings replace the earlier assumption that a thin relay and shorter instructions alone define the remaining work.
 
-| Check | Status |
-| --- | --- |
-| `agy plugin validate --strict --json` | Passed with CLI 1.5.3 on the source package and a staged workspace copy in a path with spaces. The loader recognizes one skill and one MCP server. A generic icon is the only note. |
-| Cua tool compatibility | The configured macOS executable exists. Cua Driver 0.43.2 advertises all 32 configured tools. The browser preparation, exact binding, window capture, stale token, and session behavior in the runbook use the installed schemas. |
-| Local browser fixture | An ephemeral loopback HTTP server returned the fixture with status 200. Non-GUI JavaScript tests exercised literal form submission, unique random transfer tokens, and reset between page contexts. |
-| Shared installation and discovery | `agy plugin install` writes to the user plugin directory shared by App and CLI. Confirm discovery in fresh conversations in App 2.29.0 and interactive CLI 1.5.3 during live validation. |
-| Live operation | A live Antigravity run completed the browser reading task. It repeatedly used Cua native window snapshots to read page content and spent over 11 minutes on computer use. The runbook tracks coverage of other scenarios separately for App and CLI. |
+## Proposed next work, when resumed
 
-Use the [validation runbook](VALIDATION.md) to record each live attempt. The key acceptance result is a trace from one Antigravity conversation showing the plugin observe the browser, obtain a fresh value, act on an exact native window, and verify that value at both ends. A separate screenshot-only run tests whether the model has usable pixels.
+Follow the [persistent runtime design](PERSISTENT_RUNTIME_DESIGN.md) for the full architecture and release gates:
 
-## Phase 2 — Speed and reliability
+1. **Establish observation and image contracts.** Test the actual catalog with existing browser formats for text/container/link relationships. Independently prove that inline images reach Gemini vision. These checks determine whether changes belong in an adapter, Driver or host integration.
+2. **Build the smallest persistent execution slice.** One task-scoped JS worker, a small SDK over authorized Driver calls, retained values and handles, selected outputs, and explicit cancellation/reset/cleanup. Verify that filtering retained observations adds no Driver calls.
+3. **Complete a representative workflow.** Cover catalog selection, discussion navigation, two images, later replies, cleanup and a browser/native transfer. Preserve freshness, scope and coverage evidence.
+4. **Compare complete results.** Use matched Antigravity settings and starting state, with Codex separately attributed. Apply the design's repeated-run and call-count gates; report outer calls, nested calls, waits, model/host gaps and wall time separately.
 
-- **Give browser work a dedicated route.** Evaluate a browser entry point backed by Cua's typed tools for exact-tab binding, scoped page reads, and tab screenshots. Reuse the same workflow for the browser leg of mixed tasks. Surface attachment failures clearly and keep native window controls available for authorized desktop work.
-- **Measure before adding code.** Use the Antigravity and Codex transcripts to compare tool routes, elapsed time, call count, approvals, retries, and result coverage. Repeat the same task in Antigravity with the typed browser route. Use existing Cua mechanisms and tune tool exposure or batching where the trace shows a benefit. Implement a new Cua-backed operation only when a measured gap calls for it.
-- **Verify across hosts.** Record App and CLI results separately. Recheck native and mixed workflows as routing changes, and track signed-in browser attachment and Antigravity's built-in `/browser` separately from plugin execution.
+The first two contract checks remain outstanding. No Driver fork is yet established as necessary. Do not substitute another fixed batching interface for the proposed programmable environment or claim that a screenshot proves model-visible vision.
 
-## Distribution
+## Existing plugin and supporting checks
 
-- **Marketplace logo & assets.** When ready for cosmetic polish or Marketplace distribution, add a dedicated square logo under `assets/logo.svg` (or `.png`). Per Antigravity & Google Marketplace asset guidance: must be at least 128×128 pixels (square), transparent background, high contrast across both light/dark themes, and roughly 10% empty margin baked in (the UI frame center-crops and adds no padding). Reference via `"logo": "assets/logo.svg"` in `plugin.json` to eliminate the generic icon fallback note in strict validation.
+The current candidate uses a stdio relay and bounded [browser flow](BROWSER_FLOW.md), with direct tools and native scripts available. The [functional runbook](VALIDATION.md) remains useful for targeting, denial, stale state, interruption and mixed workflows. It is not the complete acceptance plan for the proposed runtime.
+
+## Historical context
+
+The initial phase established basic plugin functionality and exposed inefficient browsing. Earlier roadmap versions are available in Git history. The [old optimization plan](OPTIMIZATION_PLAN.md) is superseded; its version tables, architecture descriptions and recommendations must not be used as current implementation guidance.

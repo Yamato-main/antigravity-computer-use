@@ -3,5 +3,5 @@
   "name": "antigravity-computer-use",
   "displayName": "Computer Use",
   "description": "Operate and verify macOS applications and browser pages from Antigravity App and CLI using Cua Driver.",
-  "version": "0.1.0"
+  "version": "0.4.1"
 }
