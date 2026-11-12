@@ -68,6 +68,16 @@ Create a fresh TextEdit document named `CUA Phase 1 Transfer.txt` with an empty 
 - **Stale state.** In a disposable native window, have the agent take two full AX snapshots of the same target and request one harmless action with a token from the first. Cua should refuse the stale token and leave the window unchanged. Have the agent report the refusal and use a fresh token only after reobservation. If the runtime refuses the deliberate stale-token experiment before a call, record that separately.
 - **Interrupted browser.** Stop a chat run after temporary browser preparation. Record any completed actions from the trace. If the browser is still open, ask the agent in the same conversation to end the exact named Cua session. Verify that the disposable browser exits. If the MCP transport has already closed, record whether the browser exits on disconnect or idle expiry. Keep the shared Driver running.
 
+### 6. Catalog selection, readiness, and inline images
+
+Use the same loopback server. Reload `catalog.html` for each run. The catalog loads asynchronously and filters on keyboard events. A decoy card mentions the requested title in its preview. The real title and its unnamed link occupy different branches of the same card. Each attachment renders a fresh six-character code after a delay, with the code present only in the image pixels.
+
+> /antigravity-computer-use:computer-use I authorize a fresh Cua-owned temporary Chromium profile. Open http://127.0.0.1:8765/catalog.html and wait until the catalog is ready. Find the exact heading One Piece Reading Club and establish which link belongs to its card. Use the Filter titles field to narrow the results and verify the change. Open the observed link, verify the discussion title, read the opening post and a later reply, and expand the attachment in each post. Wait for each attachment to finish expanding, then report its code from the inline screenshot. Use the plugin only and end its disposable session. Report any missing evidence or image delivery error.
+
+**Pass:** the trace shows `Catalog ready: 3 discussions`, `Matching discussions: 1`, and navigation via the link on the title's own card. It verifies the opening post and later reply, observes each attachment's expanded state, and returns both codes. Compare the reported codes with the corresponding images from that run. For the inline vision gate, require two correct codes without an image-file read. Record a separate result for any file-based fallback. Record outer MCP calls, nested Driver calls, readiness waits, and cleanup.
+
+**Catalog contract check:** while the same tab is still on the catalog, compare the raw `semantic_v2` and `dom_refs_v1` structured responses with the model-visible output. Record the fields that connect the exact title to its card and link, along with coverage and any truncation. Repeat this check on the live catalog for an upstream Driver decision. The synthetic fixture makes the relationship repeatable, while the live page establishes which structures the Driver exposes there.
+
 ## Record results
 
 Use one row per attempt. Report failures at the boundary where they occur. Examples include plugin discovery, MCP connection, Driver permission, image delivery to the model, browser attachment, action delivery, and state verification.

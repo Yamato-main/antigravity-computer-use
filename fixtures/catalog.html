@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discussion catalog fixture</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font: 1rem/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+    input { font: inherit; }
+    article { border: 1px solid #999; padding: 1rem; margin: 1rem 0; }
+    article h2 { margin-top: 0; }
+    .thumbnail { display: inline-block; padding: 0.4rem 0.8rem; background: #e8edfc; color: #193a86; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Discussion catalog</h1>
+    <label for="filter">Filter titles</label>
+    <input id="filter" type="search" autocomplete="off">
+    <p id="status" role="status">Loading catalog…</p>
+    <section id="cards" aria-label="Discussions" aria-busy="true" hidden>
+      <article id="card-weekly">
+        <div>
+          <h2>Weekly manga roundup</h2>
+          <p>Includes a mention of One Piece Reading Club.</p>
+        </div>
+        <div><a href="./thread.html?discussion=weekly"><span class="thumbnail" aria-hidden="true">Open discussion</span></a></div>
+      </article>
+      <article id="card-reading-club">
+        <div>
+          <h2>One Piece Reading Club</h2>
+          <p>Readers compare story arcs and share two attachments.</p>
+        </div>
+        <div><a href="./thread.html?discussion=reading-club"><span class="thumbnail" aria-hidden="true">Open discussion</span></a></div>
+      </article>
+      <article id="card-animation">
+        <div>
+          <h2>Animation techniques</h2>
+          <p>Discussing timing and composition.</p>
+        </div>
+        <div><a href="./thread.html?discussion=animation"><span class="thumbnail" aria-hidden="true">Open discussion</span></a></div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const filter = document.getElementById('filter');
+    const status = document.getElementById('status');
+    const cards = document.getElementById('cards');
+    let filterTimer;
+
+    function showResults(query) {
+      let matches = 0;
+      for (const card of cards.querySelectorAll('article')) {
+        const title = card.querySelector('h2').textContent.toLowerCase();
+        card.hidden = !title.includes(query);
+        if (!card.hidden) matches++;
+      }
+      cards.hidden = false;
+      cards.setAttribute('aria-busy', 'false');
+      status.textContent = query ? `Matching discussions: ${matches}` : `Catalog ready: ${matches} discussions`;
+    }
+
+    const loadTimer = setTimeout(() => showResults(''), 900);
+    filter.addEventListener('keyup', () => {
+      clearTimeout(loadTimer);
+      clearTimeout(filterTimer);
+      cards.setAttribute('aria-busy', 'true');
+      status.textContent = 'Filtering discussions…';
+      const query = filter.value.trim().toLowerCase();
+      filterTimer = setTimeout(() => showResults(query), 650);
+    });
+  </script>
+</body>
+</html>

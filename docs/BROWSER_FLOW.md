@@ -14,6 +14,22 @@ The plugin now exposes `browser_flow` through the same MCP relay. It runs a shor
 
 The workflow follows Cua's [typed browser contract](https://cua.ai/docs/cua-driver/guides/browsers): refs come from the selected tab's latest semantic snapshot; changing the page or tab invalidates the cached snapshot; read-only content refs cannot be clicked. The flow supports isolated launch, exact bind, navigation, named or ref-based click/type, and read/extract. Use direct tools for operations outside that set. No site-specific logic is built in.
 
+## Delayed browser results
+
+Add `wait_ms` (250–8,000 ms) to a `read` that specifies `expect_text` or `expect_url`. The flow observes immediately, then polls within the time and Driver call budgets if the condition is missing. An MCP or Driver error still stops the batch. Scoped refs and continuations belong to an observation, so use those for single reads. An optional `screenshot:true` captures and checks a fresh snapshot after readiness. A flow supports up to two screenshot reads. Their `media_offset` and `media_count` refer to the media blocks after the first text block.
+
+For the catalog fixture in [scenario 6](VALIDATION.md#6-catalog-selection-readiness-and-inline-images), start the loopback server and send three `browser_flow` calls using one fresh session label. Use `wait_ms:5000` on each verifying read.
+
+1. Open the isolated profile, navigate to `catalog.html`, and read for `Catalog ready: 3 discussions`.
+2. Type `One Piece` into `Filter titles` with `mode:"keystrokes"`. Read for `Matching discussions: 1`, click the unique `link` role in that filtered snapshot, then read for the opening reply and `thread.html?discussion=reading-club` at the full fixture URL.
+3. Click `Expand opening attachment`, then read for `Opening attachment is expanded.` with a screenshot. Click the `Later replies` link and `Expand later attachment`. Read for `Later attachment is expanded.` with a screenshot, then end. Include the later reply in `terms` to keep it in the final excerpt.
+
+For a direct relay comparison with the previous implementation, use a fresh isolated profile for each run and the same target, text and coverage. With the previous implementation, reissue a plain `read` on a condition miss after 250 ms, 500 ms, then 1 s as needed. Click the returned link ref after filtering, and capture each image with a separate read after verifying its expansion. Count outer `browser_flow` requests and the sum of their `driver_calls` separately.
+
+On macOS with Cua Driver 0.44.0 and disposable Brave profiles, a local MCP client exercised the relay directly. The baseline completed in 18 flow calls, 28 Driver calls, and 8.90 seconds. Three candidate runs completed in 3 flow calls each, 27–28 Driver calls, and 8.21–8.65 seconds. Each verified the selected thread, opening post, later reply, two expanded image blocks, and session cleanup. The measurement excludes model inference and host rendering. A separate direct relay run verified the same synthetic token in the browser and an exact TextEdit scratch window within one session.
+
+An additional direct probe on the public catalog returned two topic matches and no action refs from a scoped `semantic_v2` query. A `dom_refs_v1` read returned a URL with a matching slug but no title or parent relationship, and reported truncation. The fixture route works because the page's own filter leaves a single verified result and its action ref. General title-to-link association still needs a Driver observation that preserves the relationship.
+
 ## Manual verification
 
 Install plugin 0.4.1 or later and reconnect the MCP server using the [README](../README.md). Version 0.4.0 drops per-request MCP metadata on nested calls and can fail before opening the browser. Start the [local fixture](VALIDATION.md#prepare). In a fresh Antigravity conversation, ask it to use the following steps in one `antigravity-computer-use_cua-driver.browser_flow` call. Pick a new session label for every attempt. If Brave is the only browser, discover its running PID via the Driver and pass it as `browser_pid` on `open`.

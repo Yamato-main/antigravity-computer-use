@@ -28,6 +28,7 @@ Use the validation record for observed behavior, the source review for establish
 | --- | --- |
 | [Roadmap](ROADMAP.md) | Current direction and readiness to begin; summarizes the three primary documents. |
 | [Browser flow](BROWSER_FLOW.md) | Existing 0.4.1 mechanism and manual checks; not the future execution architecture. |
+| [PR #2 App validation](VALIDATION_PR_2.md) | Candidate installation checks, live catalog comparison, inline-image limitation and readiness timeout diagnostic. |
 | [Validation runbook](VALIDATION.md) | Reusable functional scenarios and provenance rules. Runtime acceptance is defined in the persistent runtime design. |
 | [Superseded plan notice](OPTIMIZATION_PLAN.md) | Redirects to current guidance. The old investigation lives under `archive/` and cannot define current requirements. |
 

@@ -11,6 +11,7 @@ FLOW_TIMEOUT = 45
 MAX_SNAPSHOT_BYTES = 512_000
 MAX_EXCERPT_CHARS = 5_000
 MAX_SESSIONS = 8
+MAX_SCREENSHOTS = 2
 
 STRING = {"type": "string", "minLength": 1, "maxLength": 2048}
 ID = {"type": "integer", "minimum": 1}
@@ -25,7 +26,7 @@ OPS = {
     "navigate": ({"url": STRING}, ["url"]),
     "read": ({**FILTERS, "query": STRING, "scope_ref": STRING, "continuation": STRING,
               "screenshot": {"type": "boolean"}, "expect_text": STRING,
-              "expect_url": STRING}, []),
+              "expect_url": STRING, "wait_ms": {"type": "integer", "minimum": 250, "maximum": 8000}}, []),
     "extract": (FILTERS, []),
     "click": ({"name": STRING, "role": STRING, "ref": STRING}, []),
     "type": ({"name": STRING, "role": STRING, "ref": STRING,
@@ -45,11 +46,13 @@ TOOL = {
         "snapshot, context includes nearby rows, edge:last selects from its end. Extract filters "
         "the saved snapshot with no Driver call but cannot enlarge partial coverage. Check complete, "
         "omitted and continuation; zero cache matches do not prove absence from the page. "
-        "Click/type require one exact accessible name "
-        "or a returned ref; role can disambiguate. Use read after an action to verify its effect. "
+        "Click/type require one exact accessible name or a returned ref; role can disambiguate. "
+        "Click by role alone only when a complete latest read contains one matching action ref. "
+        "Use read with expect_text or expect_url and wait_ms to verify a delayed result in the same call. "
+        "A wait repeats only the read and takes any screenshot after the condition is met. "
         "Use type mode:keystrokes for search/filter inputs that require keyboard events. "
         "When a link opens a tab, bind again and select the returned tab_id explicitly. "
-        "Only the last read may request a screenshot; end releases this task's session. "
+        "Up to two reads may request screenshots, returned in step order; end releases this task's session. "
         "Stops at the first error and never retries a mutation."
     ),
     "inputSchema": {
@@ -98,6 +101,7 @@ def _validate(args):
         raise FlowError("Use a short, unique named session.")
     if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_STEPS:
         raise FlowError(f"Supply between 1 and {MAX_STEPS} steps.")
+    screenshots = 0
     for i, step in enumerate(steps):
         op = step.get("op") if isinstance(step, dict) else None
         if not isinstance(op, str) or op not in OPS:
@@ -109,14 +113,20 @@ def _validate(args):
             raise FlowError(f"Invalid arguments for step {i + 1} ({op}).")
         if op == "bind" and (("pid" in step) != ("window_id" in step)):
             raise FlowError("Supply both pid and window_id, or neither to refresh.")
-        if op in {"click", "type"} and (("name" in step) == ("ref" in step) or
-                                           ("ref" in step and "role" in step)):
-            raise FlowError("Supply either an exact name (optionally with role) or a returned ref.")
+        if op in {"click", "type"}:
+            if "ref" in step and ("name" in step or "role" in step):
+                raise FlowError("Use a returned ref by itself.")
+            if "ref" not in step and "name" not in step and not (op == "click" and "role" in step):
+                raise FlowError("Supply an exact name or a returned ref. Click also accepts a unique role.")
         if op == "read":
             if "scope_ref" in step and "continuation" in step:
                 raise FlowError("Use scope_ref or continuation for a read.")
-            if step.get("screenshot") and any(s.get("op") != "end" for s in steps[i+1:] if isinstance(s, dict)):
-                raise FlowError("A screenshot read must be last, optionally followed by end.")
+            if "wait_ms" in step and ("scope_ref" in step or "continuation" in step or
+                                     not ("expect_text" in step or "expect_url" in step)):
+                raise FlowError("A wait needs an expected URL or text and a repeatable read without scope_ref or continuation.")
+            screenshots += bool(step.get("screenshot"))
+            if screenshots > MAX_SCREENSHOTS:
+                raise FlowError(f"A flow can capture at most {MAX_SCREENSHOTS} screenshots.")
         if op == "end" and i != len(steps) - 1:
             raise FlowError("End must be the last step.")
         if op == "navigate":
@@ -215,10 +225,11 @@ def _excerpt(data, options):
             break
         remaining -= len(lines[index]) + 1
         emitted.append(index)
-    evidence = outline + [row.get("text", "") for row in content if isinstance(row, dict)]
+    evidence = outline + [row[key] for row in content if isinstance(row, dict)
+                          for key in ("text", "name") if isinstance(row.get(key), str)]
     return {
         "url": _page_url(data, snapshot),
-        "snapshot_id": snapshot.get("snapshot_id", data.get("snapshot_id")),
+        "snapshot_id": snapshot.get("snapshot_id", snapshot.get("id", data.get("snapshot_id"))),
         "matches": len(matches),
         "matches_scope": "returned_snapshot",
         "rows": [lines[i] for i in sorted(emitted)],
@@ -262,13 +273,13 @@ class BrowserFlows:
         session = None
         deadline = time.monotonic() + FLOW_TIMEOUT
 
-        def call(name, **kwargs):
+        def call(name, *, until=None, **kwargs):
             nonlocal calls
             if cancelled.is_set():
                 raise FlowError("Workflow cancelled; no later steps were attempted.")
             if calls >= MAX_CALLS:
                 raise FlowError("Driver call budget reached.")
-            remaining = deadline - time.monotonic()
+            remaining = min(deadline, until if until is not None else deadline) - time.monotonic()
             if remaining <= 0:
                 raise FlowError("Workflow deadline reached.")
             calls += 1
@@ -308,46 +319,77 @@ class BrowserFlows:
 
         def read(options):
             target = pair()
-            state.pop("snapshot", None)
             params = {key: options[key] for key in ("query", "scope_ref", "continuation") if key in options}
-            data, result = call("get_browser_state", **target, snapshot_format="semantic_v2",
-                                include_screenshot=options.get("screenshot", False), **params)
-            if not _snapshot(data):
-                raise FlowError("Driver did not return structured semantic page state.", result)
-            if len(json.dumps(data, ensure_ascii=False).encode("utf-8")) > MAX_SNAPSHOT_BYTES:
-                raise FlowError("Snapshot exceeds the cache budget. Read with a narrower query or scope.")
-            state["snapshot"] = data
-            projection = options
-            if options.get("expect_text") and not options.get("terms"):
-                projection = {**options, "terms": [options["expect_text"]]}
-            view, lines = _excerpt(data, projection)
-            view["source"] = "fresh"
-            if options.get("expect_url") and options["expect_url"] != view["url"]:
-                raise FlowError("Fresh read did not verify the expected URL.", {"structuredContent": view})
-            if options.get("expect_text") and not any(
-                    options["expect_text"].casefold() in line.casefold() for line in lines):
-                raise FlowError("Expected text was not present in this read; page coverage may be partial.",
-                                {"structuredContent": view})
-            if options.get("expect_text"):
-                view["verified_text"] = options["expect_text"]
-            if options.get("screenshot"):
+            expected_text, expected_url = options.get("expect_text"), options.get("expect_url")
+            projection = {**options, "terms": [expected_text]} if expected_text and not options.get("terms") else options
+
+            def observe(screenshot, until=None):
+                state.pop("snapshot", None)
+                data, result = call("get_browser_state", until=until, **target, snapshot_format="semantic_v2",
+                                    include_screenshot=screenshot, **params)
+                if not _snapshot(data):
+                    raise FlowError("Driver did not return structured semantic page state.", result)
+                if len(json.dumps(data, ensure_ascii=False).encode("utf-8")) > MAX_SNAPSHOT_BYTES:
+                    raise FlowError("Snapshot exceeds the cache budget. Read with a narrower query or scope.")
+                state["snapshot"] = data
+                view, lines = _excerpt(data, projection)
+                view["source"] = "fresh"
+                problem = None
+                if expected_url and expected_url != view["url"]:
+                    problem = "Fresh read did not verify the expected URL."
+                elif expected_text and not any(expected_text.casefold() in line.casefold() for line in lines):
+                    problem = "Expected text was not present in this read; page coverage may be partial."
+                elif expected_text:
+                    view["verified_text"] = expected_text
+                return view, result, problem
+
+            screenshot = options.get("screenshot", False)
+            if "wait_ms" in options:
+                started = time.monotonic()
+                until = min(deadline, started + options["wait_ms"] / 1000)
+                interval, observations = 0.25, 1
+                view, result, problem = observe(False, until)
+                while problem and time.monotonic() + interval < until:
+                    if cancelled.wait(interval):
+                        raise FlowError("Workflow cancelled; no later steps were attempted.")
+                    observations += 1
+                    view, result, problem = observe(False, until)
+                    interval = min(1, interval * 2)
+                waited_ms = round((time.monotonic() - started) * 1000)
+                took_screenshot = screenshot and problem is None
+                if took_screenshot:
+                    view, result, problem = observe(True)
+                view.update(observations=observations, readiness_ms=waited_ms)
+                if problem:
+                    message = ("Screenshot read lost the verified condition." if took_screenshot else
+                               "Readiness condition was not met.")
+                    raise FlowError(f"{message} {problem}", {"structuredContent": view})
+            else:
+                view, result, problem = observe(screenshot)
+                if problem:
+                    raise FlowError(problem, {"structuredContent": view})
+            if screenshot:
                 blocks = [block for block in result.get("content", []) if isinstance(block, dict)
                           and block.get("type") in {"image", "resource", "resource_link"}]
                 if not blocks:
                     raise FlowError("Driver did not return screenshot media.", result)
+                view.update(media_offset=len(images), media_count=len(blocks))
                 images.extend(blocks)
             return view
 
         def action_refs(step):
             op = step["op"]
             snapshot = _snapshot(state.get("snapshot", {}))
+            ref = step.get("ref")
+            name = step.get("name", "").casefold()
+            role = step.get("role", "").casefold()
             return list(dict.fromkeys(
                 row["ref"] for row in _refs(snapshot)
                 if isinstance(row.get("ref"), str) and isinstance(row.get("actions"), list)
                 and op in row["actions"] and
-                (row["ref"] == step["ref"] if "ref" in step else
-                 str(row.get("name", row.get("label", ""))).casefold() == step["name"].casefold() and
-                 ("role" not in step or str(row.get("role", "")).casefold() == step["role"].casefold()))
+                (ref is None or row["ref"] == ref) and
+                (not name or str(row.get("name", row.get("label", ""))).casefold() == name) and
+                (not role or str(row.get("role", "")).casefold() == role)
             ))
 
         try:
@@ -424,6 +466,9 @@ class BrowserFlows:
                     out["source"] = "cached"
                 elif op in {"click", "type"}:
                     target = pair()
+                    if "name" not in step and "ref" not in step and (
+                            _snapshot(state.get("snapshot", {})).get("complete") is not True):
+                        raise FlowError("Click by role alone needs a complete read of the intended scope.")
                     matches = action_refs(step)
                     if not matches and "name" in step:
                         read({"query": step["name"]})
