@@ -1,23 +1,13 @@
 # Antigravity Computer Use
 
-> [!IMPORTANT]
-> **Proposed fix: a persistent, programmable CUA runtime paired with a better browser observation API. Both are necessary.**
+> [!NOTE]
+> **Computer Use 0.4.1 for Antigravity App and CLI**
 >
-> [Start with the runtime design](docs/PERSISTENT_RUNTIME_DESIGN.md). Reuse existing Driver capabilities where adequate; a Driver API change remains conditional on the observation contract tests. Implementation has not started.
+> [Installation](#install-once-for-app-and-cli) · [Validation and known limitations](docs/VALIDATION_PR_2.md) · [Roadmap](docs/ROADMAP.md)
 
 A plugin for Antigravity App and Antigravity CLI that operates macOS apps and browser pages from chat, including tasks that cross between them. Antigravity owns the conversation and decides what to do. The installed Cua Driver supplies window observations, browser state, and UI actions over its existing stdio MCP server. IDE support is deferred.
 
-**Status.** The 0.4.1 candidate repairs execution failures, but complete browsing efficiency remains unresolved. Live tests and source inspection now support a proposed persistent JS runtime over Cua Driver. That runtime has not been implemented; implementation is not starting as part of this documentation update.
-
-## Current direction: start here
-
-The following documents supersede the earlier optimization assumptions:
-
-1. [Persistent runtime design](docs/PERSISTENT_RUNTIME_DESIGN.md) — proposed architecture, prerequisite checks and acceptance gates.
-2. [CUA source review](docs/CUA_SOURCE_REVIEW.md) — verified mechanisms and plugin/Driver/host responsibilities.
-3. [0.4.1 validation](docs/VALIDATION_0_4_1.md) — live results, repaired failures and the remaining performance gap.
-
-See the [documentation guide](docs/README.md) for precedence and historical material, and the [roadmap](docs/ROADMAP.md) for the next agreed task. The existing browser-flow guide and functional runbook describe checks for the current plugin; they do not establish the future runtime or a measured speedup.
+**Status.** Version 0.4.1 includes browser action batching, bounded readiness checks, exact browser bindings, keyboard-triggered filtering, and up to two screenshot captures per flow. Live local checks passed for filtering, form submission, and browser-to-native transfer. Inline image delivery, a short-timeout defect, and complete browsing efficiency remain unresolved; see the [latest validation report](docs/VALIDATION_PR_2.md).
 
 ## Install once for App and CLI
 
@@ -34,7 +24,7 @@ agy plugin validate --strict "$project/plugin" &&
 
 After updating, restart the plugin's `cua-driver` MCP connection in App Customizations → Computer Use → MCP → More actions → Restart, then start a fresh conversation. Browser binding/setup results should show `Cua plugin relay 0.4.1`; an absent marker indicates an old or bypassed connection. Start a fresh conversation on either surface. Existing CLI processes must also reconnect or restart.
 
-The 0.4.1 candidate repairs nested MCP metadata forwarding and isolated-browser startup, preserves snapshot coverage and exact binding handles, and exposes Cua's keyboard input mode for live filters. Skill guidance addresses eager schema reads, reused session labels and stale-ref batches. A form check and an earlier browser/native transfer candidate passed; the later real browsing task still failed to inspect images after nearly six minutes. These repairs do not establish everyday browsing efficiency; see the [validation record](docs/VALIDATION_0_4_1.md) for candidate-specific results before considering a merge.
+Version 0.4.1 also repairs nested MCP metadata forwarding and isolated-browser startup and preserves snapshot coverage. Skill guidance covers schema discovery, unique task sessions, fresh action refs, and delayed results. The [latest App validation](docs/VALIDATION_PR_2.md) records the verified local workflows and remaining limitations; the [earlier validation record](docs/VALIDATION_0_4_1.md) preserves the public browsing failures that motivated this work. No general browsing speedup is established.
 
 - **App:** Look for **Computer Use** under **Customizations → Installed**. Open the project and select the plugin’s `computer-use` skill from composer autocomplete.
 - **CLI:** Run `cd "$project" && agy` and type `/antigravity-computer-use:computer-use` in the interactive prompt.
@@ -50,6 +40,17 @@ The expected MCP server name is `antigravity-computer-use_cua-driver`. Try a pro
 - [`docs/README.md`](docs/README.md) identifies the current evidence, architecture proposal, supporting guides and superseded material.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) summarizes the current direction and prerequisites for future implementation.
 - [`docs/OPTIMIZATION_PLAN.md`](docs/OPTIMIZATION_PLAN.md) preserves a superseded investigation for historical context.
+
+## Development and validation
+
+The [documentation guide](docs/README.md) explains which evidence and proposals are current:
+
+- [Latest App validation](docs/VALIDATION_PR_2.md) — installation verification, live results, and known limitations.
+- [Persistent runtime design](docs/PERSISTENT_RUNTIME_DESIGN.md) — proposed future architecture and acceptance gates; implementation has not started.
+- [CUA source review](docs/CUA_SOURCE_REVIEW.md) — verified mechanisms and plugin, Driver, and host responsibilities.
+- [Earlier 0.4.1 validation](docs/VALIDATION_0_4_1.md) — execution repairs and public browsing failures.
+
+Future runtime work requires an agreed task. The design proposal does not describe features available in the installed plugin.
 
 ## Contributing
 
